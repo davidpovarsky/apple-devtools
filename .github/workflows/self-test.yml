@@ -1,0 +1,37 @@
+name: Self Test
+on: [push, pull_request]
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: compnerd/gha-setup-swift@main
+        with: {swift-version: latest}
+      - run: python -m unittest discover -s tests -v
+  apple:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installed Xcode and SDK inventory
+        run: APPLE_XCODE=stable bash macos/apple-authority.sh sdk-info
+      - name: Real SwiftUI SDK typecheck
+        run: |
+          printf 'import SwiftUI\nstruct V: View { var body: some View { Text("ok") } }\n' > valid.swift
+          APPLE_PATH=valid.swift APPLE_SDK=macosx bash macos/apple-authority.sh typecheck
+      - name: Invalid Apple API gives concise diagnostics
+        run: |
+          printf 'import SwiftUI\nlet value = DefinitelyNotAnAppleAPI()\n' > invalid.swift
+          if APPLE_PATH=invalid.swift APPLE_SDK=macosx bash macos/apple-authority.sh typecheck > invalid.out 2>&1; then exit 1; fi
+          grep -E 'error:|full_log=' invalid.out | tail -20
+      - name: SDK symbol query
+        env: {APPLE_MODULE: SwiftUI, APPLE_SYMBOL: searchable, APPLE_SDK: macosx}
+        run: bash macos/apple-authority.sh api
+      - name: Signing and entitlement inspection
+        run: |
+          printf 'print("ok")\n' > signed.swift
+          xcrun swiftc signed.swift -o signed-tool
+          codesign -s - signed-tool
+          APPLE_PATH=signed-tool bash macos/apple-authority.sh entitlements
+          bash macos/apple-authority.sh signing-doctor
+      - name: Pinned XcodeBuildMCP
+        run: npx -y xcodebuildmcp@2.7.0 --help >/dev/null

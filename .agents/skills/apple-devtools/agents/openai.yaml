@@ -1,0 +1,4 @@
+interface:
+  display_name: "Apple Devtools"
+  short_description: "Verify Swift and Apple-platform code"
+  default_prompt: "Use $apple-devtools to verify this Swift or Apple-platform change with the cheapest authoritative check."

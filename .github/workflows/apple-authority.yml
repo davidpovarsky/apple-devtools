@@ -1,0 +1,65 @@
+name: Apple Authority
+on:
+  workflow_dispatch:
+    inputs:
+      operation: {required: true, type: choice, options: [sdk-info, doctor, api, typecheck, build, test, test-focused, sim, signing-doctor, entitlements, archive-check, ci]}
+      repository: {required: false, type: string}
+      ref: {required: false, default: main, type: string}
+      runs_on: {required: false, default: '["macos-26"]', type: string}
+      xcode: {required: false, default: default, type: choice, options: [default, stable, beta]}
+      sdk: {required: false, default: iphonesimulator, type: string}
+      path: {required: false, type: string}
+      scheme: {required: false, type: string}
+      destination: {required: false, type: string}
+      module: {required: false, type: string}
+      symbol: {required: false, type: string}
+      only_testing: {required: false, type: string}
+  workflow_call:
+    inputs:
+      operation: {required: true, type: string}
+      repository: {required: false, type: string}
+      ref: {required: false, default: main, type: string}
+      runs_on: {required: false, default: '["macos-26"]', type: string}
+      xcode: {required: false, default: default, type: string}
+      sdk: {required: false, default: iphonesimulator, type: string}
+      path: {required: false, type: string}
+      scheme: {required: false, type: string}
+      destination: {required: false, type: string}
+      module: {required: false, type: string}
+      symbol: {required: false, type: string}
+      only_testing: {required: false, type: string}
+permissions: {contents: read}
+jobs:
+  validate:
+    runs-on: ${{ fromJSON(inputs.runs_on || '["macos-26"]') }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: {repository: davidpovarsky/apple-devtools, path: .toolkit}
+      - if: inputs.repository != ''
+        uses: actions/checkout@v4
+        with: {repository: '${{ inputs.repository }}', ref: '${{ inputs.ref }}', path: source}
+      - name: Focused Apple validation
+        working-directory: ${{ inputs.repository != '' && 'source' || '.toolkit' }}
+        env:
+          APPLE_XCODE: ${{ inputs.xcode }}
+          APPLE_SDK: ${{ inputs.sdk }}
+          APPLE_PATH: ${{ inputs.path }}
+          APPLE_SCHEME: ${{ inputs.scheme }}
+          APPLE_DESTINATION: ${{ inputs.destination }}
+          APPLE_MODULE: ${{ inputs.module }}
+          APPLE_SYMBOL: ${{ inputs.symbol }}
+          APPLE_ONLY_TESTING: ${{ inputs.only_testing }}
+        run: bash "$GITHUB_WORKSPACE/.toolkit/macos/apple-authority.sh" "${{ inputs.operation }}"
+      - name: Verify pinned XcodeBuildMCP
+        if: inputs.operation == 'doctor' || inputs.operation == 'sim'
+        run: npx -y xcodebuildmcp@2.7.0 --help >/dev/null
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-${{ inputs.operation }}-${{ github.run_id }}
+          path: |
+            source/.apple-devtools-logs
+            .toolkit/.apple-devtools-logs
+          if-no-files-found: ignore
+          retention-days: 14

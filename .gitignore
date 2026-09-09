@@ -1,0 +1,8 @@
+.apple-devtools-logs/
+*.xcresult
+*.xcarchive
+.build/
+__pycache__/
+*.p8
+*.p12
+*.mobileprovision
