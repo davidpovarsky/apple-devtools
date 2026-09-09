@@ -22,7 +22,7 @@ api)
   out="$(mktemp -d)";xcrun swift-symbolgraph-extract -module-name "$module" -sdk "$(xcrun --sdk "$sdk" --show-sdk-path)" -target "$target" -output-dir "$out">/dev/null
   jq --arg q "$symbol" '[.symbols[]|select((.identifier.precise|contains($q)) or (.names.title|contains($q)))|{title:.names.title,precise:.identifier.precise,path:.pathComponents,availability:.availability}]|.[:20]' "$out"/*.symbols.json;;
 typecheck) [[ -n "$project_path" ]]||{ echo 'APPLE_PATH must name a Swift file';exit 2;};filtered xcrun --sdk "$sdk" swiftc -typecheck -sdk "$(xcrun --sdk "$sdk" --show-sdk-path)" "$project_path";;
-signing-doctor) security find-identity -v -p codesigning|sed -E 's/[0-9A-F]{40}/<certificate-hash>/g';find "$HOME/Library/MobileDevice/Provisioning Profiles" -maxdepth 1 -name '*.mobileprovision' 2>/dev/null|wc -l|xargs printf 'provisioning_profiles=%s\n';;
+signing-doctor) security find-identity -v -p codesigning|sed -E 's/[0-9A-F]{40}/<certificate-hash>/g';count="$(find "$HOME/Library/MobileDevice/Provisioning Profiles" -maxdepth 1 -name '*.mobileprovision' 2>/dev/null|wc -l||true)";printf 'provisioning_profiles=%s\n' "${count// /}";;
 entitlements) [[ -n "$project_path" ]]||{ echo 'APPLE_PATH must name an app/archive/binary';exit 2;};codesign -d --entitlements :- "$project_path" >"$log" 2>&1||true;grep -vE 'TeamIdentifier|application-identifier|keychain-access-groups' "$log"|head -100;;
 archive-check) [[ -n "$project_path" ]]||{ echo 'APPLE_PATH must name an xcarchive';exit 2;};plutil -p "$project_path/Info.plist"|head -100;find "$project_path/Products/Applications" -maxdepth 1 -name '*.app' -print;;
 build|ci|sim|test|test-focused)

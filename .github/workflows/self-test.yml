@@ -9,8 +9,8 @@ jobs:
         shell: pwsh
         run: |
           winget install --id Swift.Toolchain --exact --source winget --silent --accept-source-agreements --accept-package-agreements
-          $swiftBin = Get-ChildItem "$env:LOCALAPPDATA\Programs\Swift\Toolchains\*\usr\bin" -Directory | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-          $runtimeBin = Get-ChildItem "$env:LOCALAPPDATA\Programs\Swift\Runtimes\*\usr\bin" -Directory | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          $swiftBin = Resolve-Path "$env:LOCALAPPDATA\Programs\Swift\Toolchains\*\usr\bin" | Sort-Object Path -Descending | Select-Object -First 1 -ExpandProperty Path
+          $runtimeBin = Resolve-Path "$env:LOCALAPPDATA\Programs\Swift\Runtimes\*\usr\bin" | Sort-Object Path -Descending | Select-Object -First 1 -ExpandProperty Path
           $swiftBin | Out-File $env:GITHUB_PATH -Append
           $runtimeBin | Out-File $env:GITHUB_PATH -Append
       - run: python -m unittest discover -s tests -v
