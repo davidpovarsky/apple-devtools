@@ -4,14 +4,20 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: compnerd/gha-setup-swift@main
-        with: {swift-version: latest}
+      - uses: actions/checkout@v6
+      - name: Install current stable Swift
+        shell: pwsh
+        run: |
+          winget install --id Swift.Toolchain --exact --source winget --silent --accept-source-agreements --accept-package-agreements
+          $swiftBin = Get-ChildItem "$env:LOCALAPPDATA\Programs\Swift\Toolchains\*\usr\bin" -Directory | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          $runtimeBin = Get-ChildItem "$env:LOCALAPPDATA\Programs\Swift\Runtimes\*\usr\bin" -Directory | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          $swiftBin | Out-File $env:GITHUB_PATH -Append
+          $runtimeBin | Out-File $env:GITHUB_PATH -Append
       - run: python -m unittest discover -s tests -v
   apple:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Installed Xcode and SDK inventory
         run: APPLE_XCODE=stable bash macos/apple-authority.sh sdk-info
       - name: Real SwiftUI SDK typecheck

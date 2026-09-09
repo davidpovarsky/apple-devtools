@@ -13,7 +13,7 @@ choose_xcode
 case "$operation" in
 sdk-info|doctor)
   echo "active_xcode=$(xcodebuild -version|tr '\n' ' ')";echo "developer_dir=${DEVELOPER_DIR:-$(xcode-select -p)}"
-  for x in /Applications/Xcode*.app;do [[ -d "$x" ]]&&DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version|head -1|sed "s|^|installed_xcode=$x: |";done
+  for x in /Applications/Xcode*.app;do if [[ -d "$x" ]];then xv="$(DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version)";printf 'installed_xcode=%s: %s\n' "$x" "${xv%%$'\n'*}";fi;done
   for s in macosx iphoneos iphonesimulator watchos watchsimulator appletvos appletvsimulator xros xrsimulator;do xcrun --sdk "$s" --show-sdk-version 2>/dev/null|sed "s/^/$s=/"||true;done
   xcrun simctl list devices available -j>.apple-devtools-logs/simulators.json;;
 api)

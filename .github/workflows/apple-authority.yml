@@ -34,10 +34,10 @@ jobs:
     runs-on: ${{ fromJSON(inputs.runs_on || '["macos-26"]') }}
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with: {repository: davidpovarsky/apple-devtools, path: .toolkit}
       - if: inputs.repository != ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with: {repository: '${{ inputs.repository }}', ref: '${{ inputs.ref }}', path: source}
       - name: Focused Apple validation
         working-directory: ${{ inputs.repository != '' && 'source' || '.toolkit' }}
