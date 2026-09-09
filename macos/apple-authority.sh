@@ -38,29 +38,35 @@ compile-sweep)
     [[ -f app/Config/Secrets.xcconfig.example && ! -f app/Config/Secrets.xcconfig ]] && cp app/Config/Secrets.xcconfig.example app/Config/Secrets.xcconfig
     chmod +x build-xcframework.sh utilities/scripts/patch-app-icon.rb 2>/dev/null || true
     ./build-xcframework.sh release
-    python3 -c "
-with open('app/project.yml', 'r') as f:
-    content = f.read()
-if 'PinkhaTorah' not in content:
-    replacement = '''  PinkhaTorah:
-    path: Packages/PinkhaTorah
-  TorahInspectorKit:
-    url: https://github.com/davidpovarsky/TorahInspectorKit.git
-    from: \"0.1.0\"
-  PinkhaFeatures:'''
-    content = content.replace('  PinkhaFeatures:', replacement)
-    with open('app/project.yml', 'w') as f:
-        f.write(content)
-print('Patched project.yml for diagnostic test')
-"
     (cd app && xcodegen generate)
     [[ -f utilities/scripts/verify-apple-identity.py ]] && python3 utilities/scripts/verify-apple-identity.py
   fi
   [[ -n "$project_path" && "$project_path" == *.xcodeproj ]] || project_path="$(find . -maxdepth 4 -name '*.xcodeproj' -not -path '*/.*' -print -quit)"
   echo "Using project: $project_path"
-  targets_input="${APPLE_TARGETS:-Pinkha,ChavrusaNotesShare,ChavrusaNotesWidgets}"
-  IFS=',' read -ra targets <<< "$targets_input"
   failed=()
+
+  scheme="${APPLE_SCHEME:-PinkhaRelease}"
+  echo "::group::Compile scheme $scheme (main app)"
+  app_log=".apple-devtools-logs/${scheme}-compile.log"
+  if ! xcodebuild build \
+    -project "$project_path" \
+    -scheme "$scheme" \
+    -configuration Release \
+    -destination 'generic/platform=iOS' \
+    -derivedDataPath ".apple-devtools-logs/DerivedData-Preflight" \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGN_IDENTITY="" \
+    CODE_SIGNING_REQUIRED=NO 2>&1 | tee "$app_log"; then
+    echo "::error::Compilation failed for scheme $scheme"
+    grep -nE 'error:|fatal error:|The following build commands failed' "$app_log" | tail -60 || true
+    failed+=("$scheme")
+  else
+    echo "Compilation succeeded for scheme $scheme"
+  fi
+  echo "::endgroup::"
+
+  targets_input="${APPLE_TARGETS:-ChavrusaNotesShare,ChavrusaNotesWidgets}"
+  IFS=',' read -ra targets <<< "$targets_input"
   for target in "${targets[@]}"; do
     target="$(echo "$target" | tr -d '[:space:]')"
     [[ -z "$target" ]] && continue
@@ -83,9 +89,9 @@ print('Patched project.yml for diagnostic test')
     echo "::endgroup::"
   done
   if [ ${#failed[@]} -gt 0 ]; then
-    echo "::error::Diagnostic compile sweep failed for targets: ${failed[*]}"
+    echo "::error::Diagnostic compile sweep failed for: ${failed[*]}"
     exit 1
   fi
-  echo "Diagnostic compile sweep passed for all targets"
+  echo "Diagnostic compile sweep passed for all targets and scheme"
   ;;
 *)echo "Unknown operation: $operation" >&2;exit 2;;esac
