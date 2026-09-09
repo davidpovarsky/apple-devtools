@@ -11,8 +11,10 @@ jobs:
           winget install --id Swift.Toolchain --exact --source winget --silent --accept-source-agreements --accept-package-agreements
           $swiftBin = Resolve-Path "$env:LOCALAPPDATA\Programs\Swift\Toolchains\*\usr\bin" | Sort-Object Path -Descending | Select-Object -First 1 -ExpandProperty Path
           $runtimeBin = Resolve-Path "$env:LOCALAPPDATA\Programs\Swift\Runtimes\*\usr\bin" | Sort-Object Path -Descending | Select-Object -First 1 -ExpandProperty Path
+          $sdkRoot = Resolve-Path "$env:LOCALAPPDATA\Programs\Swift\Platforms\*\Windows.platform\Developer\SDKs\Windows.sdk" | Sort-Object Path -Descending | Select-Object -First 1 -ExpandProperty Path
           $swiftBin | Out-File $env:GITHUB_PATH -Append
           $runtimeBin | Out-File $env:GITHUB_PATH -Append
+          "SDKROOT=$sdkRoot" | Out-File $env:GITHUB_ENV -Append
       - run: python -m unittest discover -s tests -v
   apple:
     runs-on: macos-26
