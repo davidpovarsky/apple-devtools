@@ -30,4 +30,46 @@ build|ci|sim|test|test-focused)
   xcodebuild "${base[@]}" -list -json>.apple-devtools-logs/project.json;[[ -n "$scheme" ]]||scheme="$(jq -r '.project.schemes[0] // .workspace.schemes[0]' .apple-devtools-logs/project.json)";xcodebuild "${base[@]}" -scheme "$scheme" -showBuildSettings>.apple-devtools-logs/build-settings.log;grep -E 'SDKROOT|SUPPORTED_PLATFORMS|.*DEPLOYMENT_TARGET|PRODUCT_BUNDLE_IDENTIFIER' .apple-devtools-logs/build-settings.log|head -80
   args=(xcodebuild "${base[@]}" -scheme "$scheme" -destination "$destination")
   [[ "$operation" == build || "$operation" == ci || "$operation" == sim ]]&&args+=(build);[[ "$operation" == test ]]&&args+=(test);if [[ "$operation" == test-focused ]];then args+=(test);[[ -n "${APPLE_ONLY_TESTING:-}" ]]&&args+=("-only-testing:${APPLE_ONLY_TESTING}");fi;filtered "${args[@]}";;
+compile-sweep)
+  if [[ -f "./build-xcframework.sh" ]]; then
+    echo "=== Preparing build inputs and regenerating project ==="
+    command -v xcodegen >/dev/null || brew install xcodegen
+    gem list -i xcodeproj >/dev/null || gem install xcodeproj --no-document
+    [[ -f app/Config/Secrets.xcconfig.example && ! -f app/Config/Secrets.xcconfig ]] && cp app/Config/Secrets.xcconfig.example app/Config/Secrets.xcconfig
+    chmod +x build-xcframework.sh utilities/scripts/patch-app-icon.rb 2>/dev/null || true
+    ./build-xcframework.sh release
+    (cd app && xcodegen generate)
+    [[ -f utilities/scripts/verify-apple-identity.py ]] && python3 utilities/scripts/verify-apple-identity.py
+  fi
+  discover
+  targets_input="${APPLE_TARGETS:-Pinkha,ChavrusaNotesShare,ChavrusaNotesWidgets}"
+  IFS=',' read -ra targets <<< "$targets_input"
+  failed=()
+  for target in "${targets[@]}"; do
+    target="$(echo "$target" | tr -d '[:space:]')"
+    [[ -z "$target" ]] && continue
+    echo "::group::Compile target $target"
+    target_log=".apple-devtools-logs/${target}-compile.log"
+    if ! xcodebuild build \
+      -project "$project_path" \
+      -target "$target" \
+      -configuration Release \
+      -sdk iphoneos \
+      CODE_SIGNING_ALLOWED=NO \
+      CODE_SIGN_IDENTITY="" \
+      CODE_SIGNING_REQUIRED=NO 2>&1 | tee "$target_log"; then
+      echo "::error::Compilation failed for target $target"
+      grep -nE 'error:|fatal error:|The following build commands failed' "$target_log" | tail -60 || true
+      failed+=("$target")
+    else
+      echo "Compilation succeeded for target $target"
+    fi
+    echo "::endgroup::"
+  done
+  if [ ${#failed[@]} -gt 0 ]; then
+    echo "::error::Diagnostic compile sweep failed for targets: ${failed[*]}"
+    exit 1
+  fi
+  echo "Diagnostic compile sweep passed for all targets"
+  ;;
 *)echo "Unknown operation: $operation" >&2;exit 2;;esac
