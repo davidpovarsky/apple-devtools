@@ -38,6 +38,21 @@ compile-sweep)
     [[ -f app/Config/Secrets.xcconfig.example && ! -f app/Config/Secrets.xcconfig ]] && cp app/Config/Secrets.xcconfig.example app/Config/Secrets.xcconfig
     chmod +x build-xcframework.sh utilities/scripts/patch-app-icon.rb 2>/dev/null || true
     ./build-xcframework.sh release
+    python3 -c "
+with open('app/project.yml', 'r') as f:
+    content = f.read()
+if 'PinkhaTorah' not in content:
+    replacement = '''  PinkhaTorah:
+    path: Packages/PinkhaTorah
+  TorahInspectorKit:
+    url: https://github.com/davidpovarsky/TorahInspectorKit.git
+    from: \"0.1.0\"
+  PinkhaFeatures:'''
+    content = content.replace('  PinkhaFeatures:', replacement)
+    with open('app/project.yml', 'w') as f:
+        f.write(content)
+print('Patched project.yml for diagnostic test')
+"
     (cd app && xcodegen generate)
     [[ -f utilities/scripts/verify-apple-identity.py ]] && python3 utilities/scripts/verify-apple-identity.py
   fi
