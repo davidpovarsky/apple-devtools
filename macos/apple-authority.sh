@@ -7,7 +7,7 @@ choose_xcode(){
   if [[ "$mode" == beta ]];then for x in /Applications/Xcode*beta*.app;do [[ -d "$x" ]]&&export DEVELOPER_DIR="$x/Contents/Developer"&&return;done;echo 'No beta Xcode installed'>&2;exit 2;fi
   if [[ "$mode" == stable ]];then for x in /Applications/Xcode*.app;do [[ -d "$x" && "$x" != *beta* ]]&&export DEVELOPER_DIR="$x/Contents/Developer"&&return;done;echo 'No stable Xcode installed'>&2;exit 2;fi
 }
-discover(){ [[ -n "$project_path" ]]&&return;project_path="$(find . -maxdepth 4 -name '*.xcworkspace' -not -path '*/.*' -print -quit)";[[ -n "$project_path" ]]||project_path="$(find . -maxdepth 4 -name '*.xcodeproj' -not -path '*/.*' -print -quit)"; }
+discover(){ [[ -n "$project_path" ]]&&return;project_path="$(find . -maxdepth 4 -name '*.xcworkspace' -not -path '*.xcodeproj/*' -not -path '*/.*' -print -quit)";[[ -n "$project_path" ]]||project_path="$(find . -maxdepth 4 -name '*.xcodeproj' -not -path '*/.*' -print -quit)"; }
 filtered(){ set +e;"$@">"$log" 2>&1;code=$?;set -e;grep -nE 'error:|fatal error:|warning:|BUILD (SUCCEEDED|FAILED)|TEST (SUCCEEDED|FAILED)|The following build commands failed' "$log"|tail -120||true;echo "full_log=$log";return "$code"; }
 choose_xcode
 case "$operation" in
@@ -41,7 +41,8 @@ compile-sweep)
     (cd app && xcodegen generate)
     [[ -f utilities/scripts/verify-apple-identity.py ]] && python3 utilities/scripts/verify-apple-identity.py
   fi
-  discover
+  [[ -n "$project_path" && "$project_path" == *.xcodeproj ]] || project_path="$(find . -maxdepth 4 -name '*.xcodeproj' -not -path '*/.*' -print -quit)"
+  echo "Using project: $project_path"
   targets_input="${APPLE_TARGETS:-Pinkha,ChavrusaNotesShare,ChavrusaNotesWidgets}"
   IFS=',' read -ra targets <<< "$targets_input"
   failed=()
