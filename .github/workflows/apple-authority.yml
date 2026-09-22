@@ -39,7 +39,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
-        with: {repository: davidpovarsky/apple-devtools, path: .toolkit}
+        with:
+          repository: davidpovarsky/apple-devtools
+          ref: ${{ github.ref_name }}
+          path: .toolkit
       - if: inputs.repository != ''
         uses: actions/checkout@v6
         with: {repository: '${{ inputs.repository }}', ref: '${{ inputs.ref }}', path: source}
