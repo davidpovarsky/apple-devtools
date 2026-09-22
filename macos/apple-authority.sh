@@ -21,6 +21,58 @@ api)
   case "$sdk" in macosx)target=arm64-apple-macosx;;iphoneos)target=arm64-apple-ios;;iphonesimulator)target=arm64-apple-ios-simulator;;watchos)target=arm64-apple-watchos;;watchsimulator)target=arm64-apple-watchos-simulator;;appletvos)target=arm64-apple-tvos;;appletvsimulator)target=arm64-apple-tvos-simulator;;xros)target=arm64-apple-xros;;xrsimulator)target=arm64-apple-xros-simulator;;*)echo "Unsupported SDK: $sdk";exit 2;;esac
   out="$(mktemp -d)";xcrun swift-symbolgraph-extract -module-name "$module" -sdk "$(xcrun --sdk "$sdk" --show-sdk-path)" -target "$target" -output-dir "$out">/dev/null
   jq --arg q "$symbol" '[.symbols[]|select((.identifier.precise|contains($q)) or (.names.title|contains($q)))|{title:.names.title,precise:.identifier.precise,path:.pathComponents,availability:.availability}]|.[:20]' "$out"/*.symbols.json;;
+sdk-interface)
+  modules_input="${APPLE_MODULES:?comma-separated Swift modules required}"
+  sdkroot="$(xcrun --sdk "$sdk" --show-sdk-path)"
+  sdk_version="$(xcrun --sdk "$sdk" --show-sdk-version)"
+  xcode_version="$(xcodebuild -version)"
+  developer_dir="${DEVELOPER_DIR:-$(xcode-select -p)}"
+  artifact_dir=".apple-devtools-logs/sdk-interfaces"
+  rm -rf "$artifact_dir"
+  mkdir -p "$artifact_dir"
+  manifest_modules="$(mktemp)"
+  printf '{}\n' > "$manifest_modules"
+  IFS=',' read -ra modules <<< "$modules_input"
+  selected_target=""
+  for module in "${modules[@]}"; do
+    module="$(echo "$module" | tr -d '[:space:]')"
+    [[ "$module" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { echo "Invalid Swift module: $module" >&2; exit 2; }
+    interface_dir="$sdkroot/System/Library/Frameworks/$module.framework/Modules/$module.swiftmodule"
+    [[ -d "$interface_dir" ]] || { echo "Swift module interface directory not found: $interface_dir" >&2; exit 2; }
+    selected=""
+    exact="$interface_dir/arm64-apple-ios.swiftinterface"
+    if [[ -f "$exact" ]]; then
+      selected="$exact"
+    else
+      while IFS= read -r candidate; do selected="$candidate"; break; done < <(find "$interface_dir" -maxdepth 1 -type f -name 'arm64*-apple-ios*.swiftinterface' ! -name '*simulator*' ! -name '*macabi*' | LC_ALL=C sort)
+    fi
+    [[ -n "$selected" ]] || { echo "No arm64 iOS device Swift interface found for $module in $interface_dir" >&2; exit 2; }
+    target="$(basename "$selected" .swiftinterface)"
+    [[ "$target" == arm64*-apple-ios* && "$target" != *simulator* && "$target" != *macabi* ]] || { echo "Selected interface is not an arm64 iOS device variant: $selected" >&2; exit 2; }
+    if [[ -n "$selected_target" && "$selected_target" != "$target" ]]; then
+      echo "Selected interface targets differ: $selected_target and $target" >&2
+      exit 2
+    fi
+    selected_target="$target"
+    destination="$artifact_dir/$module.swiftinterface"
+    cp "$selected" "$destination"
+    sha256="$(shasum -a 256 "$selected" | awk '{print $1}')"
+    updated="$(mktemp)"
+    jq --arg module "$module" --arg source "$selected" --arg artifact "$module.swiftinterface" --arg sha256 "$sha256" '. + {($module): {sourceFile: $source, artifactFile: $artifact, sha256: $sha256}}' "$manifest_modules" > "$updated"
+    mv "$updated" "$manifest_modules"
+  done
+  jq -n \
+    --arg schemaVersion "1" \
+    --arg xcodeVersion "$xcode_version" \
+    --arg developerDir "$developer_dir" \
+    --arg sdk "$sdk" \
+    --arg sdkRoot "$sdkroot" \
+    --arg sdkVersion "$sdk_version" \
+    --arg target "$selected_target" \
+    --slurpfile modules "$manifest_modules" \
+    '{schemaVersion: ($schemaVersion | tonumber), xcodeVersion: $xcodeVersion, developerDir: $developerDir, sdk: $sdk, sdkRoot: $sdkRoot, sdkVersion: $sdkVersion, target: $target, modules: $modules[0]}' > "$artifact_dir/manifest.json"
+  rm -f "$manifest_modules"
+  jq . "$artifact_dir/manifest.json";;
 typecheck) [[ -n "$project_path" ]]||{ echo 'APPLE_PATH must name a Swift file';exit 2;};filtered xcrun --sdk "$sdk" swiftc -typecheck -sdk "$(xcrun --sdk "$sdk" --show-sdk-path)" "$project_path";;
 signing-doctor) security find-identity -v -p codesigning|sed -E 's/[0-9A-F]{40}/<certificate-hash>/g';count="$(find "$HOME/Library/MobileDevice/Provisioning Profiles" -maxdepth 1 -name '*.mobileprovision' 2>/dev/null|wc -l||true)";printf 'provisioning_profiles=%s\n' "${count// /}";;
 entitlements) [[ -n "$project_path" ]]||{ echo 'APPLE_PATH must name an app/archive/binary';exit 2;};codesign -d --entitlements :- "$project_path" >"$log" 2>&1||true;grep -vE 'TeamIdentifier|application-identifier|keychain-access-groups' "$log"|head -100;;

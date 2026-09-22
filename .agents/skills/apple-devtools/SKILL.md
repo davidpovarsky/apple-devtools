@@ -13,6 +13,8 @@ Use the installed `apple-*` commands from any project directory.
    command explicitly.
 3. For exact declarations, signatures, framework presence, or availability,
    query the installed SDK with `apple-api MODULE SYMBOL` or `apple-symbol`.
+   Use `apple-sdk-interface MODULE... --sdk iphoneos` when complete public
+   module interfaces are required as read-only generator inputs.
 4. For semantics, migration advice, release notes, and examples, use
    `apple-doc TERMS` and retrieve only the relevant current Apple page.
 5. Use `apple-build`, `apple-test-focused`, or `apple-ci` only when cheaper

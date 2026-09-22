@@ -4,7 +4,7 @@ import argparse, json, os, platform, re, shutil, subprocess, sys, urllib.parse
 from pathlib import Path
 
 APPLE_MODULES={"AppKit","ARKit","AuthenticationServices","AVKit","CallKit","CloudKit","CoreML","HealthKit","MapKit","MetalKit","PassKit","RealityKit","SwiftData","SwiftUI","TVUIKit","UIKit","VisionKit","WatchKit","WidgetKit"}
-REMOTE={"apple-sdk-info":"sdk-info","apple-api":"api","apple-symbol":"api","apple-build":"build","apple-test":"test","apple-test-focused":"test-focused","apple-sim":"sim","apple-signing-doctor":"signing-doctor","apple-entitlements":"entitlements","apple-archive-check":"archive-check","apple-ci":"ci","apple-compile-sweep":"compile-sweep"}
+REMOTE={"apple-sdk-info":"sdk-info","apple-sdk-interface":"sdk-interface","apple-api":"api","apple-symbol":"api","apple-build":"build","apple-test":"test","apple-test-focused":"test-focused","apple-sim":"sim","apple-signing-doctor":"signing-doctor","apple-entitlements":"entitlements","apple-archive-check":"archive-check","apple-ci":"ci","apple-compile-sweep":"compile-sweep"}
 
 def emit(v,j=False):
     print(json.dumps(v,separators=(",",":"),sort_keys=True) if j else (" ".join(f"{k}={x}" for k,x in v.items()) if isinstance(v,dict) else v))
@@ -26,14 +26,14 @@ def slug():
 def dispatch(op,n,extra=None):
     if not shutil.which("gh"):raise SystemExit("GitHub CLI is required for macOS/Xcode dispatch")
     target=n.repository or slug(); fields={"operation":op,"repository":target,"ref":n.ref,"xcode":n.xcode,"sdk":n.sdk,"path":n.path or "","scheme":n.scheme or "","destination":n.destination or "","only_testing":n.only_testing or "","targets":getattr(n,"targets",None) or "","runs_on":getattr(n,"runs_on",None) or ""}
-    fields.update(extra or {}); cmd=["gh","workflow","run","apple-authority.yml","--repo","davidpovarsky/apple-devtools","--ref","main"]
+    fields.update(extra or {}); cmd=["gh","workflow","run","apple-authority.yml","--repo","davidpovarsky/apple-devtools","--ref",n.toolkit_ref]
     for k,v in fields.items():
         if v:cmd += ["-f",f"{k}={v}"]
     rc=subprocess.run(cmd).returncode
     if rc:raise SystemExit(rc)
     emit({"status":"dispatched","operation":op,"repository":target or "apple-devtools"},n.json);return 0
 def add_common(p):
-    p.add_argument("--json",action="store_true");p.add_argument("--repository");p.add_argument("--ref",default="main");p.add_argument("--xcode",choices=("default","stable","beta"),default="default");p.add_argument("--sdk",default="iphonesimulator");p.add_argument("--path");p.add_argument("--scheme");p.add_argument("--destination");p.add_argument("--only-testing");p.add_argument("--targets");p.add_argument("--runs-on")
+    p.add_argument("--json",action="store_true");p.add_argument("--repository");p.add_argument("--ref",default="main");p.add_argument("--toolkit-ref",default=os.environ.get("APPLE_DEVTOOLS_REF","main"));p.add_argument("--xcode",choices=("default","stable","beta"),default="default");p.add_argument("--sdk",default="iphonesimulator");p.add_argument("--path");p.add_argument("--scheme");p.add_argument("--destination");p.add_argument("--only-testing");p.add_argument("--targets");p.add_argument("--runs-on")
 def main(argv=None):
     a=list(sys.argv[1:] if argv is None else argv); invoked=Path(sys.argv[0]).stem.lower(); cmd=invoked if invoked.startswith("apple-") else (a.pop(0) if a else "apple-doctor")
     p=argparse.ArgumentParser(prog=cmd);add_common(p);p.add_argument("terms",nargs="*");p.add_argument("--local",action="store_true");n=p.parse_args(a)
@@ -53,6 +53,11 @@ def main(argv=None):
     if cmd in ("apple-api","apple-symbol"):
         if len(n.terms)<2:p.error("provide MODULE SYMBOL, for example: SwiftUI searchable")
         return dispatch("api",n,{"module":n.terms[0],"symbol":n.terms[1]})
+    if cmd=="apple-sdk-interface":
+        if not n.terms:p.error("provide one or more Swift module names, for example: SwiftUI SwiftUICore")
+        invalid=[module for module in n.terms if not re.fullmatch(r"[A-Za-z_]\w*",module)]
+        if invalid:p.error("invalid Swift module name: "+invalid[0])
+        return dispatch("sdk-interface",n,{"modules":",".join(n.terms)})
     if cmd=="apple-sdk-info" and n.local and platform.system()!="Darwin":emit({"platform":platform.system(),"apple_sdks":[],"note":"Real Apple SDK discovery requires macOS/Xcode"},n.json);return 0
     if cmd in REMOTE:return dispatch(REMOTE[cmd],n)
     p.error(f"unknown command: {cmd}")

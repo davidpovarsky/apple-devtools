@@ -2,7 +2,7 @@ name: Apple Authority
 on:
   workflow_dispatch:
     inputs:
-      operation: {required: true, type: choice, options: [sdk-info, doctor, api, typecheck, build, test, test-focused, sim, signing-doctor, entitlements, archive-check, ci, compile-sweep]}
+      operation: {required: true, type: choice, options: [sdk-info, sdk-interface, doctor, api, typecheck, build, test, test-focused, sim, signing-doctor, entitlements, archive-check, ci, compile-sweep]}
       repository: {required: false, type: string}
       ref: {required: false, default: main, type: string}
       runs_on: {required: false, default: '["macos-26"]', type: string}
@@ -12,6 +12,7 @@ on:
       scheme: {required: false, type: string}
       destination: {required: false, type: string}
       module: {required: false, type: string}
+      modules: {required: false, type: string}
       symbol: {required: false, type: string}
       only_testing: {required: false, type: string}
       targets: {required: false, type: string}
@@ -27,6 +28,7 @@ on:
       scheme: {required: false, type: string}
       destination: {required: false, type: string}
       module: {required: false, type: string}
+      modules: {required: false, type: string}
       symbol: {required: false, type: string}
       only_testing: {required: false, type: string}
       targets: {required: false, type: string}
@@ -58,6 +60,7 @@ jobs:
           APPLE_SCHEME: ${{ inputs.scheme }}
           APPLE_DESTINATION: ${{ inputs.destination }}
           APPLE_MODULE: ${{ inputs.module }}
+          APPLE_MODULES: ${{ inputs.modules }}
           APPLE_SYMBOL: ${{ inputs.symbol }}
           APPLE_ONLY_TESTING: ${{ inputs.only_testing }}
           APPLE_TARGETS: ${{ inputs.targets }}
