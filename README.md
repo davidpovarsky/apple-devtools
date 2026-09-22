@@ -36,6 +36,9 @@ Export complete public Swift module interfaces from an installed device SDK with
 apple-sdk-interface SwiftUI SwiftUICore --sdk iphoneos --xcode stable
 ```
 
+Use `--runs-on xcode-27` when the requested SDK is available on GitHub's
+dedicated Xcode 27 runner image rather than the default macOS image.
+
 The macOS authority stores the selected arm64 device interfaces and a manifest
 containing the Xcode/SDK identity, source paths, target variant, and SHA-256
 hashes in the workflow artifact's `sdk-interfaces` directory.

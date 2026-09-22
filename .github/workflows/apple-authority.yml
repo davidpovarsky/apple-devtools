@@ -5,7 +5,7 @@ on:
       operation: {required: true, type: choice, options: [sdk-info, sdk-interface, doctor, api, typecheck, build, test, test-focused, sim, signing-doctor, entitlements, archive-check, ci, compile-sweep]}
       repository: {required: false, type: string}
       ref: {required: false, default: main, type: string}
-      runs_on: {required: false, default: '["macos-26"]', type: string}
+      runs_on: {required: false, default: macos-26, type: string}
       xcode: {required: false, default: default, type: choice, options: [default, stable, beta]}
       sdk: {required: false, default: iphonesimulator, type: string}
       path: {required: false, type: string}
@@ -21,7 +21,7 @@ on:
       operation: {required: true, type: string}
       repository: {required: false, type: string}
       ref: {required: false, default: main, type: string}
-      runs_on: {required: false, default: '["macos-26"]', type: string}
+      runs_on: {required: false, default: macos-26, type: string}
       xcode: {required: false, default: default, type: string}
       sdk: {required: false, default: iphonesimulator, type: string}
       path: {required: false, type: string}
@@ -35,7 +35,7 @@ on:
 permissions: {contents: read}
 jobs:
   validate:
-    runs-on: ${{ fromJSON(inputs.runs_on || '["macos-26"]') }}
+    runs-on: ${{ inputs.runs_on || 'macos-26' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
