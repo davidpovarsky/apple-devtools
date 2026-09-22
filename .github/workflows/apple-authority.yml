@@ -76,4 +76,5 @@ jobs:
             source/.apple-devtools-logs
             .toolkit/.apple-devtools-logs
           if-no-files-found: ignore
+          include-hidden-files: true
           retention-days: 14
