@@ -36,19 +36,61 @@ jobs:
     runs-on: ${{ fromJSON(inputs.runs_on || '["macos-26"]') }}
     timeout-minutes: 45
     steps:
+      - name: Live Activity · refresh
+        uses: davidpovarsky/github-automation/live-refresh@main
+        continue-on-error: true
+        with:
+          event: refresh
+          device_id: ${{ secrets.NOTIFY_DEVICE_ID }}
+          token: ${{ secrets.NOTIFY_DEVICE_TOKEN }}
+          github_token: ${{ github.token }}
       - uses: actions/checkout@v6
         with: {repository: davidpovarsky/apple-devtools, path: .toolkit}
+      - name: Live Activity · refresh
+        uses: davidpovarsky/github-automation/live-refresh@main
+        continue-on-error: true
+        with:
+          event: refresh
+          device_id: ${{ secrets.NOTIFY_DEVICE_ID }}
+          token: ${{ secrets.NOTIFY_DEVICE_TOKEN }}
+          github_token: ${{ github.token }}
       - if: inputs.repository != ''
         uses: actions/checkout@v6
         with: {repository: '${{ inputs.repository }}', ref: '${{ inputs.ref }}', path: source}
+      - name: Live Activity · refresh
+        if: inputs.operation == 'compile-sweep'
+        uses: davidpovarsky/github-automation/live-refresh@main
+        continue-on-error: true
+        with:
+          event: refresh
+          device_id: ${{ secrets.NOTIFY_DEVICE_ID }}
+          token: ${{ secrets.NOTIFY_DEVICE_TOKEN }}
+          github_token: ${{ github.token }}
       - name: Setup Rust
         if: inputs.operation == 'compile-sweep'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin
+      - name: Live Activity · refresh
+        if: inputs.operation == 'compile-sweep'
+        uses: davidpovarsky/github-automation/live-refresh@main
+        continue-on-error: true
+        with:
+          event: refresh
+          device_id: ${{ secrets.NOTIFY_DEVICE_ID }}
+          token: ${{ secrets.NOTIFY_DEVICE_TOKEN }}
+          github_token: ${{ github.token }}
       - name: Cache Rust build
         if: inputs.operation == 'compile-sweep'
         uses: Swatinem/rust-cache@v2
+      - name: Live Activity · refresh
+        uses: davidpovarsky/github-automation/live-refresh@main
+        continue-on-error: true
+        with:
+          event: refresh
+          device_id: ${{ secrets.NOTIFY_DEVICE_ID }}
+          token: ${{ secrets.NOTIFY_DEVICE_TOKEN }}
+          github_token: ${{ github.token }}
       - name: Focused Apple validation
         working-directory: ${{ inputs.repository != '' && 'source' || '.toolkit' }}
         env:
@@ -62,9 +104,26 @@ jobs:
           APPLE_ONLY_TESTING: ${{ inputs.only_testing }}
           APPLE_TARGETS: ${{ inputs.targets }}
         run: bash "$GITHUB_WORKSPACE/.toolkit/macos/apple-authority.sh" "${{ inputs.operation }}"
+      - name: Live Activity · refresh
+        if: inputs.operation == 'doctor' || inputs.operation == 'sim'
+        uses: davidpovarsky/github-automation/live-refresh@main
+        continue-on-error: true
+        with:
+          event: refresh
+          device_id: ${{ secrets.NOTIFY_DEVICE_ID }}
+          token: ${{ secrets.NOTIFY_DEVICE_TOKEN }}
+          github_token: ${{ github.token }}
       - name: Verify pinned XcodeBuildMCP
         if: inputs.operation == 'doctor' || inputs.operation == 'sim'
         run: npx -y xcodebuildmcp@2.7.0 --help >/dev/null
+      - name: Live Activity · refresh
+        uses: davidpovarsky/github-automation/live-refresh@main
+        continue-on-error: true
+        with:
+          event: refresh
+          device_id: ${{ secrets.NOTIFY_DEVICE_ID }}
+          token: ${{ secrets.NOTIFY_DEVICE_TOKEN }}
+          github_token: ${{ github.token }}
       - if: always()
         uses: actions/upload-artifact@v4
         with:
